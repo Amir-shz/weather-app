@@ -1,50 +1,17 @@
-const BASE_URL = "https://api.openweathermap.org/data/2.5";
-const API_KEY = "17e6283a0811f0c5f90b06d47cc5dc4b";
-const DAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+import getWeatherData from "./utils/HttpReq.js";
+import { removeModal, showModal } from "./utils/modal.js";
+import getWeekDay from "./utils/customDate.js";
 
 const searchInput = document.querySelector("input");
 const searchButton = document.querySelector("button");
 const weatherContainer = document.getElementById("weather");
 const locationIcon = document.getElementById("location");
 const forecastContainer = document.getElementById("forecast");
-
-const getCurrentWeatherByName = async (city) => {
-  const url = `${BASE_URL}/weather?q=${city}&appid=${API_KEY}&units=metric`;
-  const response = await fetch(url);
-  const result = await response.json();
-  return result;
-};
-
-const getCurrentWeatherByCoordinates = async (lat, lon) => {
-  const url = `${BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
-  const response = await fetch(url);
-  const result = await response.json();
-  return result;
-};
-
-const getForecastWeatherByCoordinates = async (lat, lon) => {
-  const url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
-  const response = await fetch(url);
-  const result = await response.json();
-  return result;
-};
-
-const getForecastWeatherByName = async (city) => {
-  const url = `${BASE_URL}/forecast?q=${city}&appid=${API_KEY}&units=metric`;
-  const response = await fetch(url);
-  const result = await response.json();
-  return result;
-};
+const modalButton = document.getElementById("modal-button");
+const loader = document.getElementById("loader");
 
 const renderCurrentWeather = (data) => {
+  if (!data) return;
   const weatherJSX = `
     <h1>${data.name}, ${data.sys.country}</h1>
     <div id="main">
@@ -63,11 +30,8 @@ const renderCurrentWeather = (data) => {
   weatherContainer.innerHTML = weatherJSX;
 };
 
-const getWeekDay = (date) => {
-  return DAYS[new Date(date * 1000).getDay()];
-};
-
 const renderForecastWeather = (data) => {
+  if (!data) return;
   forecastContainer.innerHTML = "";
   data = data.list.filter((obj) => obj.dt_txt.endsWith("12:00:00"));
   data.forEach((item) => {
@@ -86,44 +50,60 @@ const renderForecastWeather = (data) => {
 };
 
 const searchHandler = async () => {
+  weatherContainer.innerHTML = "<span id='loader'></span>";
+  loader.style.display = "inline-block";
   const cityName = searchInput.value;
   searchInput.value = "";
 
   if (!cityName) {
-    alert("please enter city name");
+    showModal("please enter city name");
+    return;
   }
 
-  const currentData = await getCurrentWeatherByName(cityName);
+  const currentData = await getWeatherData("current", cityName);
+  loader.style.display = "none";
   renderCurrentWeather(currentData);
-  const forecastData = await getForecastWeatherByName(cityName);
+  const forecastData = await getWeatherData("forecast", cityName);
   renderForecastWeather(forecastData);
 };
 
 const positionCallback = async (position) => {
   const { latitude, longitude } = position.coords;
-  const currentData = await getCurrentWeatherByCoordinates(latitude, longitude);
+  const currentData = await getWeatherData("current", {
+    lat: latitude,
+    lon: longitude,
+  });
   renderCurrentWeather(currentData);
-  const forecastData = await getForecastWeatherByCoordinates(
-    latitude,
-    longitude
-  );
+  const forecastData = await getWeatherData("forecast", {
+    lat: latitude,
+    lon: longitude,
+  });
   renderForecastWeather(forecastData);
 };
 
 const errorCallback = (error) => {
-  console.log(error.message);
+  showModal(error.message);
 };
 
 const locationHandler = () => {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(positionCallback, errorCallback);
   } else {
-    alert("your browser does not support geolocation");
+    showModal("your browser does not support geolocation");
   }
+};
+
+const initHandler = async () => {
+  const currentData = await getWeatherData("current", "tehran");
+  renderCurrentWeather(currentData);
+  const forecastData = await getWeatherData("forecast", "tehran");
+  renderForecastWeather(forecastData);
 };
 
 searchButton.addEventListener("click", searchHandler);
 locationIcon.addEventListener("click", locationHandler);
+modalButton.addEventListener("click", removeModal);
+document.addEventListener("DOMContentLoaded", initHandler);
 
 ////////////////
 
